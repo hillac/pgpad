@@ -1,0 +1,117 @@
+name: BuildRelease
+
+on:
+  push:
+    tags:
+      - "v*" # push a semantic tag to trigger a release, e.g. v0.1.0
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create the release and upload assets
+
+jobs:
+  build:
+    name: Build ${{ matrix.os_name }} • ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS
+          - os_name: macOS
+            runs_on: macos-13         # x86_64
+            arch: x64
+            rust_target: x86_64-apple-darwin
+          - os_name: macOS
+            runs_on: macos-latest     # Apple Silicon arm64 (macos-15+)
+            arch: arm64
+            rust_target: aarch64-apple-darwin
+
+          # Windows
+          - os_name: Windows
+            runs_on: windows-latest   # x86_64
+            arch: x64
+            rust_target: x86_64-pc-windows-msvc
+          - os_name: Windows
+            runs_on: windows-11-arm   # native ARM64 runner label
+            arch: arm64
+            rust_target: aarch64-pc-windows-msvc
+
+          # Linux
+          - os_name: Linux
+            runs_on: ubuntu-22.04     # x86_64
+            arch: x64
+            rust_target: x86_64-unknown-linux-gnu
+          - os_name: Linux
+            runs_on: ubuntu-22.04-arm # native ARM64 runner label
+            arch: arm64
+            rust_target: aarch64-unknown-linux-gnu
+
+    runs-on: ${{ matrix.runs_on }}
+
+    env:
+      RUST_TOOLCHAIN: stable
+      RUST_TARGET: ${{ matrix.rust_target }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install Rust (${{ env.RUST_TOOLCHAIN }})
+        # dtolnay/rust-toolchain is the de-facto standard for pinning toolchains in Actions
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: ${{ env.RUST_TARGET }}
+
+      - name: Linux deps (Tauri)
+        if: startsWith(matrix.runs_on, 'ubuntu-')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Build (tauri)
+        # Your README shows the tauri scripts already exist
+        env:
+          # Set target to ensure we produce arch-specific bundles
+          CARGO_BUILD_TARGET: ${{ env.RUST_TARGET }}
+        run: npm run tauri build
+
+      - name: Collect artifacts
+        id: collect
+        shell: bash
+        run: |
+          # Find Tauri bundles under the target's bundle dir
+          ROOT="src-tauri/target/${{ env.RUST_TARGET }}/release/bundle"
+          echo "bundle root: $ROOT"
+          test -d "$ROOT" || { echo "Bundle dir not found"; exit 1; }
+          mkdir -p dist
+          # Package everything we produced for this target
+          shopt -s globstar nullglob
+          for f in "$ROOT"/**/*; do
+            if [ -f "$f" ]; then
+              cp -v "$f" dist/
+            fi
+          done
+          echo "files=$(printf "%s" "$(ls -1 dist | wc -l)")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pgpad-${{ matrix.os_name }}-${{ matrix.arch }}
+          path: dist/*
