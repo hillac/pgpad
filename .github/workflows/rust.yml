@@ -38,7 +38,7 @@ jobs:
 
           # Linux
           - os_name: Linux
-            runs_on: ubuntu-20.04     # x86_64
+            runs_on: ubuntu-22.04     # x86_64
             arch: x64
             rust_target: x86_64-unknown-linux-gnu
           # - os_name: Linux
