@@ -81,31 +81,18 @@ jobs:
       - name: Build (tauri)
         run: npm run tauri build
 
-      - name: Start SSH debug session (tmate)
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
+      # - name: Start SSH debug session (tmate)
+      #   uses: mxschmitt/action-tmate@v3
+      #   with:
+      #     limit-access-to-actor: true
 
-      - name: Collect artifacts
-        id: collect
-        shell: bash
-        run: |
-          # Find Tauri bundles under the target's bundle dir
-          ROOT="src-tauri/target/${{ env.RUST_TARGET }}/release/bundle"
-          echo "bundle root: $ROOT"
-          test -d "$ROOT" || { echo "Bundle dir not found"; exit 1; }
-          mkdir -p dist
-          # Package everything we produced for this target
-          shopt -s globstar nullglob
-          for f in "$ROOT"/**/*; do
-            if [ -f "$f" ]; then
-              cp -v "$f" dist/
-            fi
-          done
-          echo "files=$(printf "%s" "$(ls -1 dist | wc -l)")" >> "$GITHUB_OUTPUT"
-
-      - name: Upload artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pgpad-${{ matrix.os_name }}-${{ matrix.arch }}
-          path: dist/*
+          name: dist-${{ matrix.os_name }}-${{ matrix.arch }}
+          path: |
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.rpm
+            src-tauri/target/release/bundle/**/*.AppImage
+          if-no-files-found: error
+          retention-days: 14
