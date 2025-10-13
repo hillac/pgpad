@@ -17,34 +17,34 @@ jobs:
       matrix:
         include:
           # macOS
-          - os_name: macOS
-            runs_on: macos-13         # x86_64
-            arch: x64
-            rust_target: x86_64-apple-darwin
-          - os_name: macOS
-            runs_on: macos-latest     # Apple Silicon arm64 (macos-15+)
-            arch: arm64
-            rust_target: aarch64-apple-darwin
+          # - os_name: macOS
+          #   runs_on: macos-13         # x86_64
+          #   arch: x64
+          #   rust_target: x86_64-apple-darwin
+          # - os_name: macOS
+          #   runs_on: macos-latest     # Apple Silicon arm64 (macos-15+)
+          #   arch: arm64
+          #   rust_target: aarch64-apple-darwin
 
-          # Windows
-          - os_name: Windows
-            runs_on: windows-latest   # x86_64
-            arch: x64
-            rust_target: x86_64-pc-windows-msvc
-          - os_name: Windows
-            runs_on: windows-11-arm   # native ARM64 runner label
-            arch: arm64
-            rust_target: aarch64-pc-windows-msvc
+          # # Windows
+          # - os_name: Windows
+          #   runs_on: windows-latest   # x86_64
+          #   arch: x64
+          #   rust_target: x86_64-pc-windows-msvc
+          # - os_name: Windows
+          #   runs_on: windows-11-arm   # native ARM64 runner label
+          #   arch: arm64
+          #   rust_target: aarch64-pc-windows-msvc
 
           # Linux
           - os_name: Linux
             runs_on: ubuntu-22.04     # x86_64
             arch: x64
             rust_target: x86_64-unknown-linux-gnu
-          - os_name: Linux
-            runs_on: ubuntu-22.04-arm # native ARM64 runner label
-            arch: arm64
-            rust_target: aarch64-unknown-linux-gnu
+          # - os_name: Linux
+          #   runs_on: ubuntu-22.04-arm # native ARM64 runner label
+          #   arch: arm64
+          #   rust_target: aarch64-unknown-linux-gnu
 
     runs-on: ${{ matrix.runs_on }}
 
@@ -91,6 +91,11 @@ jobs:
           # Set target to ensure we produce arch-specific bundles
           CARGO_BUILD_TARGET: ${{ env.RUST_TARGET }}
         run: npm run tauri build
+
+      - name: Start SSH debug session (tmate)
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
 
       - name: Collect artifacts
         id: collect
